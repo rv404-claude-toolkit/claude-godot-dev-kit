@@ -2,6 +2,28 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.0] - 2026-04-16
+
+### Phase 3: Runtime Inspection
+
+#### Added
+- `run_project` action — launch Godot project via CLI, returns PID, supports headless/scene selection
+- `stop_project` action — graceful shutdown of running Godot instance (SIGTERM + SIGKILL fallback)
+- `inspect_runtime` action — scene tree inspection via headless GDScript (writes temp inspector script, runs Godot, parses JSON output, always cleans up)
+- `validate_with_godot` action — real GDScript validation using Godot's own parser (--check-only flag)
+- `GodotConnection` class (319 lines) — full Godot CLI integration replacing the Phase 1 stub
+- Executable discovery: checks GODOT_EXECUTABLE_PATH env var, then config, then PATH
+- Depth-capped recursive tree walker (20 levels) for scene inspection
+- Timeout protection on all subprocess calls (30s default)
+- Auto-detection of main scene from project.godot for inspect_runtime
+
+#### Changed
+- `connection.ts` — complete rewrite from 29-line stub to 319-line production implementation
+- `index.ts` — Phase 3 stub actions replaced with real implementations, lazy GodotConnection singleton
+- `types.ts` — added timeout overrides for 4 new runtime actions
+
+---
+
 ## [0.2.0] - 2026-04-16
 
 ### Phase 2: Knowledge + Agent

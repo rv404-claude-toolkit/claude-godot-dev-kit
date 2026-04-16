@@ -15,7 +15,6 @@ import {
   fromResPath,
 } from './utils.js';
 import { loadConfig } from './config.js';
-import { GodotNotRunningError } from './errors.js';
 import { GodotConnection } from './connection.js';
 import type {
   ScaffoldSceneSpec,
@@ -27,6 +26,19 @@ import type {
   GDMethodSpec,
   ParsedScript,
 } from './types.js';
+
+// ============================================================================
+// LAZY SINGLETON — GodotConnection
+// ============================================================================
+
+let _connection: GodotConnection | null = null;
+
+function getConnection(): GodotConnection {
+  if (!_connection) {
+    _connection = new GodotConnection();
+  }
+  return _connection;
+}
 
 // ============================================================================
 // ACTION DEFINITIONS
@@ -129,13 +141,36 @@ const actions: BackendAction[] = [
   },
   {
     name: 'inspect_runtime',
-    description: '[Phase 3 stub] Inspect the running Godot scene tree via debugger protocol',
-    params: [],
+    description: 'Inspect a Godot scene tree by loading it headless and dumping the node hierarchy as JSON',
+    params: [
+      { name: 'projectPath', type: 'string', required: true, description: 'Absolute path to the Godot project root' },
+      { name: 'scenePath', type: 'string', required: false, description: 'Scene to inspect (res:// path). If omitted, inspects the main scene from project.godot' },
+      { name: 'timeoutMs', type: 'number', required: false, description: 'Timeout in milliseconds (default: 30000)' },
+    ],
   },
   {
     name: 'run_project',
-    description: '[Phase 3 stub] Launch the Godot project in debug mode',
+    description: 'Launch a Godot project (opens the game window or runs headless). Returns the PID for later stop.',
+    params: [
+      { name: 'projectPath', type: 'string', required: true, description: 'Absolute path to the Godot project root' },
+      { name: 'scene', type: 'string', required: false, description: 'Specific scene to run (res:// path)' },
+      { name: 'headless', type: 'boolean', required: false, description: 'Run in headless mode (no window)' },
+      { name: 'additionalArgs', type: 'object', required: false, description: 'Array of additional CLI arguments to pass to Godot' },
+    ],
+  },
+  {
+    name: 'stop_project',
+    description: 'Stop a previously launched Godot project instance',
     params: [],
+  },
+  {
+    name: 'validate_with_godot',
+    description: 'Validate a GDScript file using Godot\'s own parser (more accurate than heuristic validation)',
+    params: [
+      { name: 'projectPath', type: 'string', required: true, description: 'Absolute path to the Godot project root' },
+      { name: 'scriptPath', type: 'string', required: true, description: 'Path to the .gd file (absolute or res://)' },
+      { name: 'timeoutMs', type: 'number', required: false, description: 'Timeout in milliseconds (default: 30000)' },
+    ],
   },
 ];
 
@@ -325,18 +360,56 @@ async function execute(
     }
 
     // -----------------------------------------------------------------------
-    // Runtime stubs (Phase 3)
+    // Runtime actions (Phase 3 — real Godot CLI integration)
     // -----------------------------------------------------------------------
     case 'inspect_runtime': {
-      throw new GodotNotRunningError(
-        'inspect_runtime requires a running Godot instance. Coming in Phase 3.'
-      );
+      const projectPath = await resolveProjectPath(params.projectPath as string);
+      const scenePath = params.scenePath as string | undefined;
+      const timeoutMs = params.timeoutMs !== undefined ? Number(params.timeoutMs) : undefined;
+      const conn = getConnection();
+      const tree = await conn.inspectSceneTree(projectPath, scenePath, timeoutMs);
+      return { projectPath, scenePath: scenePath || '(main scene)', tree };
     }
 
     case 'run_project': {
-      throw new GodotNotRunningError(
-        'run_project requires the Godot executable. Coming in Phase 3.'
-      );
+      const projectPath = await resolveProjectPath(params.projectPath as string);
+      const conn = getConnection();
+      const result = await conn.runProject(projectPath, {
+        scene: params.scene as string | undefined,
+        headless: params.headless === true,
+        additionalArgs: params.additionalArgs as string[] | undefined,
+      });
+      return {
+        projectPath,
+        pid: result.pid,
+        command: result.command,
+        args: result.args,
+        initialOutput: result.initialOutput,
+        status: 'running',
+      };
+    }
+
+    case 'stop_project': {
+      const conn = getConnection();
+      const wasRunning = conn.isConnected;
+      await conn.stopProject();
+      return { stopped: wasRunning, status: 'stopped' };
+    }
+
+    case 'validate_with_godot': {
+      if (!params.scriptPath) throw new Error('scriptPath is required for validate_with_godot');
+      const projectPath = await resolveProjectPath(params.projectPath as string);
+      const scriptPath = params.scriptPath as string;
+      const timeoutMs = params.timeoutMs !== undefined ? Number(params.timeoutMs) : undefined;
+      const conn = getConnection();
+
+      // Resolve res:// paths to absolute for the connection
+      const resolvedScript = scriptPath.startsWith('res://')
+        ? fromResPath(projectPath, scriptPath)
+        : scriptPath;
+
+      const result = await conn.validateWithGodot(projectPath, resolvedScript, timeoutMs);
+      return { scriptPath, ...result };
     }
 
     default:
@@ -387,7 +460,7 @@ async function healthCheck(): Promise<HealthStatus> {
 export const godotBackend: Backend = {
   name: 'godot',
   description:
-    'Godot 4 game engine: parse scenes, generate scripts, scaffold projects, validate files',
+    'Godot 4 game engine: parse scenes, generate scripts, scaffold projects, validate files, launch projects, inspect scene trees',
   actions,
   execute,
   healthCheck,

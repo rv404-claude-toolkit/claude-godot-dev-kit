@@ -14,7 +14,7 @@ Godot 4 game engine toolkit for Claude Code. Adds a `godot` backend service to [
 |-------|------|--------|
 | 1. Filesystem Mode | Parse/generate/validate Godot files on disk | Done |
 | 2. Knowledge + Agent | Godot 4 docs, LimboAI docs, specialist agent, /godot-ai skill | Done |
-| 3. Runtime Inspection | Live scene tree inspection via Godot debug protocol | Planned |
+| 3. Runtime Inspection | Launch Godot, inspect scene trees, validate with real parser | Done |
 
 ## Prerequisites
 
@@ -53,8 +53,10 @@ route_request(service="godot", action="<action>", params={...})
 | `validate_scene` | Validate scene file integrity | 1 |
 | `validate_script` | Validate GDScript syntax (heuristic) | 1 |
 | `scaffold_behavior_tree` | Generate LimboAI behavior tree .tres | 1 |
-| `inspect_runtime` | Inspect running scene tree | 3 (stub) |
-| `run_project` | Launch Godot project | 3 (stub) |
+| `inspect_runtime` | Inspect scene tree via headless Godot | 3 |
+| `run_project` | Launch Godot project (normal or headless) | 3 |
+| `stop_project` | Stop a running Godot instance | 3 |
+| `validate_with_godot` | Validate GDScript with Godot's own parser | 3 |
 
 ## Skills
 
