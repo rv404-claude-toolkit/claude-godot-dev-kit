@@ -13,7 +13,7 @@ Godot 4 game engine toolkit for Claude Code. Adds a `godot` backend service to [
 | Phase | What | Status |
 |-------|------|--------|
 | 1. Filesystem Mode | Parse/generate/validate Godot files on disk | Done |
-| 2. Knowledge + Agent | Godot 4 docs, LimboAI docs, specialist agent, /godot-ai skill | Planned |
+| 2. Knowledge + Agent | Godot 4 docs, LimboAI docs, specialist agent, /godot-ai skill | Done |
 | 3. Runtime Inspection | Live scene tree inspection via Godot debug protocol | Planned |
 
 ## Prerequisites
