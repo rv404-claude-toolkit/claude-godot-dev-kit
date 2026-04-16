@@ -1,0 +1,11 @@
+node_modules/
+dist/
+*.js
+*.js.map
+*.d.ts
+!src/**/*.ts
+.env
+.env.*
+*.log
+.DS_Store
+Thumbs.db
